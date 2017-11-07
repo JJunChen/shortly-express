@@ -74,6 +74,37 @@ app.post('/links',
     });
 });
 
+app.post('/signup',
+(req, res, next) => {
+  let username = req.body.username;
+  let password = req.body.password;
+  models.Users.get({username: username}).then(user => {
+    if (user) {
+      res.redirect('/signup');
+    } else {
+      models.Users.create({username, password}).then(() => {
+        res.redirect('/');
+      });
+    }
+  });
+});
+
+app.post('/login',
+(req, res, next) => {
+  let username = req.body.username;
+  let password = req.body.password;
+  models.Users.get({username: username}).then(user => {
+    if (user) {
+      if (models.Users.compare(password, user.password, user.salt)) {
+        res.redirect('/');
+      } else {
+        res.redirect('/login');
+      }
+    } else {
+      res.redirect('/login');
+    }
+  });
+});
 /************************************************************/
 // Write your authentication routes here
 /************************************************************/
