@@ -5,6 +5,7 @@ const partials = require('express-partials');
 const bodyParser = require('body-parser');
 const Auth = require('./middleware/auth');
 const models = require('./models');
+const cookieParser = require('./middleware/cookieParser');
 
 const app = express();
 
@@ -14,28 +15,54 @@ app.use(partials());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
+app.use('/', (req, res, next) => {
+  cookieParser(req, res, next);
+});
+app.use('/', (req, res, next) => {
+  Auth.createSession(req, res, next);
+});
 
-
+var getSession = (req) => {
+  return models.Sessions.get({hash: req.session.hash}).then(session => session);
+};
 
 app.get('/', 
 (req, res) => {
-  res.render('index');
+  getSession(req).then(session => {
+    if (models.Sessions.isLoggedIn(session)) {
+      res.render('index');
+    } else {
+      res.redirect('/login');
+    }
+  });
 });
 
 app.get('/create', 
 (req, res) => {
-  res.render('index');
+  getSession(req).then(session => {
+    if (models.Sessions.isLoggedIn(session)) {
+      res.render('index');
+    } else {
+      res.redirect('/login');
+    }
+  });
 });
 
 app.get('/links', 
 (req, res, next) => {
-  models.Links.getAll()
-    .then(links => {
-      res.status(200).send(links);
-    })
-    .error(error => {
-      res.status(500).send(error);
-    });
+  getSession(req).then(session => {
+    if (models.Sessions.isLoggedIn(session)) {
+      models.Links.getAll()
+        .then(links => {
+          res.status(200).send(links);
+        })
+        .error(error => {
+          res.status(500).send(error);
+        });
+    } else {
+      res.redirect('/login');
+    }
+  });
 });
 
 app.post('/links', 
@@ -83,7 +110,11 @@ app.post('/signup',
       res.redirect('/signup');
     } else {
       models.Users.create({username, password}).then(() => {
-        res.redirect('/');
+        models.Users.get({username: username}).then(user => {
+          models.Sessions.update({hash: req.session.hash}, {userId: user.id}).then(() => {
+            res.redirect('/');
+          });
+        });
       });
     }
   });
@@ -104,6 +135,23 @@ app.post('/login',
       res.redirect('/login');
     }
   });
+});
+
+app.get('/logout',
+(req, res, next) => {
+  models.Sessions.delete({hash: req.session.hash}).then(() => {
+    next();
+  });
+});
+
+app.get('/login',
+(req, res, next) => {
+  res.render('login');
+});
+
+app.get('/signup',
+(req, res, next) => {
+  res.render('signup');
 });
 /************************************************************/
 // Write your authentication routes here

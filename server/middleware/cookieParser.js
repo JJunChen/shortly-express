@@ -9,10 +9,10 @@ const parseCookies = (req, res, next) => {
       result[keyValue[0]] = keyValue[1];
     }
     req.cookies = result;
-    res.end(result);
+    // res.end(result);
     next();
   } else {
-    auth.createSession(req, res, next);
+    next();
   }
 };
 
